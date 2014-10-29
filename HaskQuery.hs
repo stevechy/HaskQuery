@@ -1,15 +1,19 @@
 module HaskQuery (
 module HaskQuery.AutoIndex, 
 Relation,
+Cont,
 empty,
+emptyWithIndex,
 reindex,
 runQuery,
 select,
 runQueryM,
 executeM,
 selectM,
+filterM,
 selectWithIndex,
 selectDynamic,
+selectDynamicWithTypeM,
 insert,
 insertRows,
 insertInto,
@@ -22,13 +26,19 @@ import qualified Data.List
 import qualified Control.Monad.Trans.Cont
 import qualified Data.Typeable
 import qualified Data.Dynamic
+import qualified Data.Proxy
 
 import HaskQuery.AutoIndex
 
 data Relation a b = Relation { _relation :: Data.IntMap.Lazy.IntMap a , _lastRowId :: Int, _indices :: UpdatableIndex a b} deriving (Show)
 
+type Cont r a = Control.Monad.Trans.Cont.Cont r a
+
 empty :: Relation a ()
 empty = Relation { _relation = Data.IntMap.Lazy.empty, _lastRowId = 0, _indices = emptyIndex }
+
+emptyWithIndex :: UpdatableIndex a c -> Relation a c
+emptyWithIndex index = reindex empty index
 
 reindex :: Relation a b -> UpdatableIndex a c -> Relation a c
 reindex indexedRelation newIndex =
@@ -41,6 +51,8 @@ runQuery query = (Control.Monad.Trans.Cont.runCont query (\value -> (\list -> va
 select :: Relation a c -> Control.Monad.Trans.Cont.Cont (b -> b) a
 select relation = Control.Monad.Trans.Cont.cont (\continuation -> (\seed -> Data.IntMap.Lazy.foldl (\foldSeed value -> continuation value foldSeed) seed (_relation relation)))
 
+filterM :: Monad m => Bool -> Control.Monad.Trans.Cont.Cont (a ->  m a) () 
+filterM predicate = Control.Monad.Trans.Cont.cont (\continuation -> (\seed -> if predicate then (continuation () seed ) else return seed))
 
 runQueryM ::  Monad m => Control.Monad.Trans.Cont.Cont ([a] ->  m [a]) a ->  m [a]
 runQueryM query = (Control.Monad.Trans.Cont.runCont query (\value -> (\list -> return (value : list)))) []
@@ -61,6 +73,14 @@ selectWithIndex indexAccessor relation indexValue = do
 
 selectDynamic :: (Data.Typeable.Typeable a) => Data.Dynamic.Dynamic -> Control.Monad.Trans.Cont.Cont (b->b) a
 selectDynamic value = Control.Monad.Trans.Cont.cont (\continuation -> (case Data.Dynamic.fromDynamic value of Just typed -> continuation typed ; Nothing -> id))
+
+selectDynamicWithType :: (Data.Typeable.Typeable a) => Data.Proxy.Proxy a -> Data.Dynamic.Dynamic -> Control.Monad.Trans.Cont.Cont (b->b) a
+selectDynamicWithType proxy value = selectDynamic value
+
+selectDynamicWithTypeM :: (Data.Typeable.Typeable a, Monad m) => Data.Proxy.Proxy a -> Data.Dynamic.Dynamic -> Control.Monad.Trans.Cont.Cont (b->m b) a
+selectDynamicWithTypeM proxy value = Control.Monad.Trans.Cont.cont (\continuation -> (\seed -> (case Data.Dynamic.fromDynamic value of Just typed -> continuation typed seed ; Nothing -> return seed)))
+
+
 
 insert :: Relation a b -> a -> Relation a b
 insert indexedRelation item = 

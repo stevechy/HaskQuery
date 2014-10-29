@@ -19,6 +19,7 @@ executable haskellQueryTest
   -- other-extensions:    
   build-depends:       base >=4.5 && <4.7, 
                        containers >=0.5 && <0.6,
-                       transformers
+                       transformers,
+                       tagged
   -- hs-source-dirs:      
   default-language:    Haskell2010
