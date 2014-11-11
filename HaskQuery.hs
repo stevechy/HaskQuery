@@ -1,5 +1,5 @@
 module HaskQuery (
-module HaskQuery.AutoIndex, 
+module HaskQuery.AutoIndex,
 Relation,
 Cont,
 empty,
@@ -11,6 +11,7 @@ runQueryM,
 executeM,
 selectM,
 filterM,
+HaskQuery.filter,
 selectWithIndex,
 selectDynamic,
 selectDynamicWithTypeM,
@@ -51,8 +52,11 @@ runQuery query = (Control.Monad.Trans.Cont.runCont query (\value -> (\list -> va
 select :: Relation a c -> Control.Monad.Trans.Cont.Cont (b -> b) a
 select relation = Control.Monad.Trans.Cont.cont (\continuation -> (\seed -> Data.IntMap.Lazy.foldl (\foldSeed value -> continuation value foldSeed) seed (_relation relation)))
 
-filterM :: Monad m => Bool -> Control.Monad.Trans.Cont.Cont (a ->  m a) () 
+filterM :: Monad m => Bool -> Control.Monad.Trans.Cont.Cont (a ->  m a) ()
 filterM predicate = Control.Monad.Trans.Cont.cont (\continuation -> (\seed -> if predicate then (continuation () seed ) else return seed))
+
+filter :: Bool -> Control.Monad.Trans.Cont.Cont (a ->  a) ()
+filter predicate = Control.Monad.Trans.Cont.cont (\continuation -> (\seed -> if predicate then (continuation () seed ) else seed))
 
 runQueryM ::  Monad m => Control.Monad.Trans.Cont.Cont ([a] ->  m [a]) a ->  m [a]
 runQueryM query = (Control.Monad.Trans.Cont.runCont query (\value -> (\list -> return (value : list)))) []
@@ -67,7 +71,7 @@ executeM computation = Control.Monad.Trans.Cont.cont (\continuation -> (\seed ->
     return result))
 
 selectWithIndex :: (c -> indexValue -> Control.Monad.Trans.Cont.Cont (b -> b) Int) -> Relation a c -> indexValue -> Control.Monad.Trans.Cont.Cont (b -> b) a
-selectWithIndex indexAccessor relation indexValue = do 
+selectWithIndex indexAccessor relation indexValue = do
     rowId <- indexAccessor (readAuto $ _indices relation) indexValue
     return $ (_relation relation) Data.IntMap.Lazy.! rowId
 
@@ -83,9 +87,9 @@ selectDynamicWithTypeM proxy value = Control.Monad.Trans.Cont.cont (\continuatio
 
 
 insert :: Relation a b -> a -> Relation a b
-insert indexedRelation item = 
-    let newRowId = (_lastRowId indexedRelation) + 1 
-        updatedRelation = Data.IntMap.Lazy.insert newRowId item (_relation indexedRelation)               
+insert indexedRelation item =
+    let newRowId = (_lastRowId indexedRelation) + 1
+        updatedRelation = Data.IntMap.Lazy.insert newRowId item (_relation indexedRelation)
         updatedIndex = updateAutoWithInput (_indices indexedRelation) (Insert $ InsertSet { inserted = Data.IntMap.Lazy.singleton newRowId item})
         in
             Relation { _relation = updatedRelation, _lastRowId = newRowId, _indices = updatedIndex}
@@ -94,14 +98,14 @@ insertRows :: Relation a b -> [a] -> Relation a b
 insertRows indexedRelation rows = Data.List.foldl' (insert) indexedRelation rows
 
 insertInto :: Relation a b -> Control.Monad.Trans.Cont.Cont (Relation a b -> Relation a b) a -> Relation a b
-insertInto indexedRelation insertContinuation = 
+insertInto indexedRelation insertContinuation =
     Control.Monad.Trans.Cont.runCont insertContinuation (\ row -> (\seedIndexedRelation -> insert seedIndexedRelation row)) indexedRelation
 
 
 update :: Relation a b-> (a -> Bool) -> (a -> a) -> Relation a b
-update indexedRelation predicate updateFunction = 
+update indexedRelation predicate updateFunction =
     let originalRelation = (_relation indexedRelation)
-        affectedRows = Data.IntMap.Lazy.filter predicate originalRelation 
+        affectedRows = Data.IntMap.Lazy.filter predicate originalRelation
         updateMap = Data.IntMap.Lazy.map (\row -> (row, updateFunction row)) affectedRows
         updatedRows = Data.IntMap.Lazy.map (\ (row, updatedRow) -> updatedRow) updateMap
         updatedIndex = updateAutoWithInput (_indices indexedRelation) $ Update $ UpdateSet { updated = updateMap }
@@ -110,10 +114,10 @@ update indexedRelation predicate updateFunction =
 
 
 delete :: Relation a b -> (a -> Bool) -> Relation a b
-delete indexedRelation predicate = 
-    let 
+delete indexedRelation predicate =
+    let
         originalRelation = (_relation indexedRelation)
-        affectedRows = Data.IntMap.Lazy.filter predicate originalRelation          
+        affectedRows = Data.IntMap.Lazy.filter predicate originalRelation
         updatedRelation =   Data.IntMap.Lazy.difference originalRelation affectedRows
         updatedIndex = updateAutoWithInput (_indices indexedRelation) $ Delete $ DeleteSet { deleted = affectedRows }
         in
