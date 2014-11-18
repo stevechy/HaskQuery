@@ -11,6 +11,7 @@ runQueryM,
 executeM,
 selectM,
 filterM,
+HaskQuery.filter,
 selectWithIndex,
 selectWithIndexM,
 selectDynamic,
@@ -54,6 +55,9 @@ select relation = Control.Monad.Trans.Cont.cont (\continuation -> (\seed -> Data
 
 filterM :: Monad m => Bool -> Control.Monad.Trans.Cont.Cont (a ->  m a) ()
 filterM predicate = Control.Monad.Trans.Cont.cont (\continuation -> (\seed -> if predicate then (continuation () seed ) else return seed))
+
+filter :: Bool -> Control.Monad.Trans.Cont.Cont (a ->  a) ()
+filter predicate = Control.Monad.Trans.Cont.cont (\continuation -> (\seed -> if predicate then (continuation () seed ) else seed))
 
 runQueryM ::  Monad m => Control.Monad.Trans.Cont.Cont ([a] ->  m [a]) a ->  m [a]
 runQueryM query = (Control.Monad.Trans.Cont.runCont query (\value -> (\list -> return (value : list)))) []
