@@ -2,6 +2,8 @@ module HaskQuery (
 module HaskQuery.AutoIndex,
 Relation,
 Cont,
+Control.Monad.Trans.Cont.cont,
+Control.Monad.Trans.Cont.runCont,
 empty,
 emptyWithIndex,
 reindex,
