@@ -16,6 +16,7 @@ filterM,
 HaskQuery.filter,
 selectWithIndex,
 selectWithIndexM,
+selectMaybe,
 selectDynamic,
 selectDynamicWithTypeM,
 insert,
@@ -82,6 +83,9 @@ selectWithIndexM :: (Monad m) => (c -> indexValue -> Control.Monad.Trans.Cont.Co
 selectWithIndexM indexAccessor relation indexValue = do
     rowId <- indexAccessor (readAuto $ _indices relation) indexValue
     return $ (_relation relation) Data.IntMap.Lazy.! rowId
+
+selectMaybe :: Maybe a -> Control.Monad.Trans.Cont.Cont (b->b) a
+selectMaybe maybeValue = Control.Monad.Trans.Cont.cont (\continuation -> (case maybeValue of Just value -> continuation value ; Nothing -> id))
 
 selectDynamic :: (Data.Typeable.Typeable a) => Data.Dynamic.Dynamic -> Control.Monad.Trans.Cont.Cont (b->b) a
 selectDynamic value = Control.Monad.Trans.Cont.cont (\continuation -> (case Data.Dynamic.fromDynamic value of Just typed -> continuation typed ; Nothing -> id))
