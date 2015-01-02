@@ -122,7 +122,7 @@ update indexedRelation predicate updateFunction =
         updatedRows = Data.IntMap.Lazy.map (\ (row, updatedRow) -> updatedRow) updateMap
         updatedIndex = updateAutoWithInput (_indices indexedRelation) $ Update $ UpdateSet { updated = updateMap }
         in
-            indexedRelation { _relation = updatedRows, _indices = updatedIndex }
+            indexedRelation { _relation = Data.IntMap.Lazy.union updatedRows originalRelation, _indices = updatedIndex }
 
 
 delete :: Relation a b -> (a -> Bool) -> Relation a b
