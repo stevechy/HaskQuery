@@ -4,6 +4,7 @@ Relation,
 Cont,
 Control.Monad.Trans.Cont.cont,
 Control.Monad.Trans.Cont.runCont,
+runQueryWithCollector,
 empty,
 emptyWithIndex,
 reindex,
@@ -52,6 +53,10 @@ reindex indexedRelation newIndex =
 
 runQuery :: Control.Monad.Trans.Cont.Cont ([a] -> [a]) a ->  [a]
 runQuery query = (Control.Monad.Trans.Cont.runCont query (\value -> (\list -> value : list))) []
+
+
+runQueryWithCollector :: (a , (b -> a -> a)) ->  Control.Monad.Trans.Cont.Cont (a -> a) b -> a
+runQueryWithCollector (collectorSeed, collectorFunction) query = Control.Monad.Trans.Cont.runCont query (\value -> (\collector -> collectorFunction value collector)) collectorSeed
 
 select :: Relation a c -> Control.Monad.Trans.Cont.Cont (b -> b) a
 select relation = Control.Monad.Trans.Cont.cont (\continuation -> (\seed -> Data.IntMap.Lazy.foldl (\foldSeed value -> continuation value foldSeed) seed (_relation relation)))
