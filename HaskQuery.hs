@@ -7,6 +7,7 @@ Control.Monad.Trans.Cont.runCont,
 runQueryWithCollector,
 empty,
 emptyWithIndex,
+size,
 reindex,
 runQuery,
 select,
@@ -45,6 +46,9 @@ empty = Relation { _relation = Data.IntMap.Lazy.empty, _lastRowId = 0, _indices 
 
 emptyWithIndex :: UpdatableIndex a c -> Relation a c
 emptyWithIndex index = reindex empty index
+
+size :: Relation a b -> Int
+size relation = Data.IntMap.Lazy.size (_relation relation)
 
 reindex :: Relation a b -> UpdatableIndex a c -> Relation a c
 reindex indexedRelation newIndex =
